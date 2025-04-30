@@ -6,7 +6,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 import sklearn.metrics
 
-df = pd.read_csv('/Users/divya/Downloads/student+performance/student/student-mat.csv')
+df = pd.read_csv('/Users/kgr/Downloads/student+performance/student/student-mat.csv')
 df['sex'] = df['sex'].map({'M': 0, 'F': 1})
 df['address'] = df['address'].map({'U': 0, 'R': 1})
 df['guardian'] = df['guardian'].map({'mother': 0, 'father': 1})
