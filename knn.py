@@ -1,45 +1,50 @@
+# Import necessary libraries
 import numpy as np
 import pandas as pd
-from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, recall_score
 import sklearn.metrics
 
-df = pd.read_csv('/Users/kgr/Downloads/student+performance/student/student-mat.csv')
+# Load the dataset
+df = pd.read_csv("/content/student-mat.csv", delimiter=';')
+
+# Convert categorical variables to numerical
 df['sex'] = df['sex'].map({'M': 0, 'F': 1})
 df['address'] = df['address'].map({'U': 0, 'R': 1})
-df['guardian'] = df['guardian'].map({'mother': 0, 'father': 1})
-#df['internet'] = df['internet'].map({'no': 0, 'yes': 1})
+df['guardian'] = df['guardian'].map({'mother': 0, 'father': 1, 'other':2}) #add 'other' to handle all categories
+# Add more mappings if necessary for other categorical columns...
 
+# Define predictor and target columns
+# Instead of removing 'G3', define predictor columns as all columns except 'G3'
+predictor_columns = df.columns.tolist()
+predictor_columns.remove('G3') # Remove the target column
 
-predictor_columns = ['school', 'sex', 'age', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu',
-                     'Mjob', 'Fjob', 'reason', 'guardian', 'traveltime', 'studytime',
-                     'failures', 'schoolsup', 'famsup', 'paid', 'activities', 'nursery',
-                     'higher', 'internet', 'romantic', 'famrel', 'freetime', 'goout',
-                     'Dalc', 'Walc', 'health', 'absences', 'G1', 'G2']
+# One-hot encode categorical features
+df = pd.get_dummies(df, columns=['school', 'famsize', 'Pstatus', 'Mjob', 'Fjob', 'reason', 'guardian',
+                                 'schoolsup', 'famsup', 'paid', 'activities', 'nursery', 'higher',
+                                 'internet', 'romantic'])
+
+#After one-hot encoding, update predictor_columns to include new columns
+predictor_columns = df.columns.tolist()
+predictor_columns.remove('G3') #Remove target column again
+
 
 predictors = df[predictor_columns].values
-targets = df["G3"].values
+targets = df['G3'].values  # or use classification e.g., pass/fail
 
-pred_train, pred_test, tar_train, tar_test = train_test_split(predictors, targets, test_size= 0.25)
+# Split the data into training and testing sets
+pred_train, pred_test, tar_train, tar_test = train_test_split(predictors, targets, test_size=0.25)
 
+# Initialize and train the KNN classifier
+knn = KNeighborsClassifier(n_neighbors=3, weights='uniform', algorithm='auto')
+knn.fit(pred_train, tar_train)
 
-print(pred_train.shape)
-print(pred_test.shape)
-print(tar_train.shape)
-print(tar_test.shape)
+# Make predictions
+y_pred = knn.predict(pred_test)
 
-neigh = KNeighborsClassifier(n_neighbors = 1, weights='uniform', algorithm='auto')
-neigh.fit(pred_train, tar_train)
-y_pred = neigh.predict(pred_test)
-
-
-#accuracy
-print("Accuracy is ", accuracy_score(tar_test, y_pred, normalize = True))
-#classification error
-print("Classification error is",1- accuracy_score(tar_test, y_pred, normalize = True))
-#sensitivity
-print("sensitivity is", sklearn.metrics.recall_score(tar_test, y_pred, labels=None, average =  'micro', sample_weight=None))
-#specificity
-print("specificity is", 1 - sklearn.metrics.recall_score(tar_test, y_pred,labels=None, average =  'micro', sample_weight=None))
+# Evaluation
+print("Accuracy is:", accuracy_score(tar_test, y_pred, normalize=True))
+print("Classification error is:", 1 - accuracy_score(tar_test, y_pred, normalize=True))
+print("Sensitivity is:", sklearn.metrics.recall_score(tar_test, y_pred, average='micro'))
+print("Specificity is:", 1 - sklearn.metrics.recall_score(tar_test, y_pred, average='micro'))
