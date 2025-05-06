@@ -10,8 +10,9 @@ from sklearn.preprocessing import label_binarize
 from sklearn.exceptions import UndefinedMetricWarning
 import warnings
 
+
 # Load the data for Mathematics (assuming it's stored in a CSV file)
-math_data = pd.read_csv('student-mat.csv', delimiter=';')
+math_data = pd.read_csv("/content/student-mat.csv", delimiter=';')
 
 # Convert categorical variables to numerical using one-hot encoding
 math_data = pd.get_dummies(math_data, columns=['school', 'sex', 'address', 'famsize', 'Pstatus', 'Mjob', 'Fjob', 'reason', 'guardian',
@@ -71,3 +72,4 @@ plt.show()
 conf_mat = confusion_matrix(y_test_mat, predictions_mat)
 print("Confusion Matrix:\n", conf_mat)
 print("\nClassification Report:\n", classification_report(y_test_mat, predictions_mat))
+
