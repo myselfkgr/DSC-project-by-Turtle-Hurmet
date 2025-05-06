@@ -1,66 +1,60 @@
-import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score, recall_score, confusion_matrix
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import accuracy_score, confusion_matrix, recall_score
 
-# Load data with correct delimiter
-df = pd.read_csv("/content/student-mat.csv", sep=';')
+# Load dataset
+df = pd.read_csv('student-mat.csv', delimiter=';')
 
-# Lowercase column names
-df.columns = df.columns.str.strip().str.lower()
-
-# Manual binary mapping (safe with all known values)
-binary_map = {
+# Convert categorical variables to numeric
+binary_mappings = {
     'sex': {'M': 0, 'F': 1},
+    'school': {'GP': 0, 'MS': 1},
     'address': {'U': 0, 'R': 1},
-    'pstatus': {'A': 0, 'T': 1},
-    'schoolsup': {'no': 0, 'yes': 1},
-    'famsup': {'no': 0, 'yes': 1},
-    'paid': {'no': 0, 'yes': 1},
-    'activities': {'no': 0, 'yes': 1},
-    'nursery': {'no': 0, 'yes': 1},
-    'higher': {'no': 0, 'yes': 1},
-    'internet': {'no': 0, 'yes': 1},
-    'romantic': {'no': 0, 'yes': 1},
+    'famsize': {'LE3': 0, 'GT3': 1},
+    'Pstatus': {'T': 0, 'A': 1},
+    'schoolsup': {'yes': 1, 'no': 0},
+    'famsup': {'yes': 1, 'no': 0},
+    'paid': {'yes': 1, 'no': 0},
+    'activities': {'yes': 1, 'no': 0},
+    'nursery': {'yes': 1, 'no': 0},
+    'higher': {'yes': 1, 'no': 0},
+    'internet': {'yes': 1, 'no': 0},
+    'romantic': {'yes': 1, 'no': 0},
     'guardian': {'mother': 0, 'father': 1, 'other': 2}
 }
 
-# Apply binary mapping
-for col, mapping in binary_map.items():
-    if col in df.columns:
-        df[col] = df[col].map(mapping)
+for col, mapping in binary_mappings.items():
+    df[col] = df[col].map(mapping)
 
-# Identify remaining non-numeric columns and encode them
-non_numeric_cols = df.select_dtypes(include='object').columns
-df = pd.get_dummies(df, columns=non_numeric_cols)
-
-# Drop rows with NaN (e.g., if mapping failed)
-df.dropna(inplace=True)
-
-# Select features and target
-X = df.drop(columns='g3')
-y = df['g3']
+# Define features and target
+predictors = df.iloc[:, :8].values
+target = df.iloc[:, 32].values  # G3 column (final grade)
 
 # Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+pred_train, pred_test, tar_train, tar_test = train_test_split(predictors, target, test_size=0.25, random_state=42)
 
-# Fit KNN
-knn = KNeighborsClassifier(n_neighbors=1)
-knn.fit(X_train, y_train)
+# Train Decision Tree
+classifier = DecisionTreeClassifier(criterion='entropy', random_state=1, splitter='best')
+classifier.fit(pred_train, tar_train)
 
-# Predict
-y_pred = knn.predict(X_test)
+# Predictions
+predictions = classifier.predict(pred_test)
 
 # Evaluation
-acc = accuracy_score(y_test, y_pred)
-print("Accuracy:", acc)
-print("Classification Error:", 1 - acc)
-print("Sensitivity (micro):", recall_score(y_test, y_pred, average='micro'))
+print("Accuracy of training dataset is: {:.2f}".format(classifier.score(pred_train, tar_train)))
+print("Accuracy of test dataset is: {:.2f}".format(classifier.score(pred_test, tar_test)))
+print("Error rate is:", 1 - accuracy_score(tar_test, predictions))
+print("Confusion Matrix:\n", confusion_matrix(tar_test, predictions))
 
-if len(np.unique(y)) == 2:
-    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
-    specificity = tn / (tn + fp)
-    print("Specificity:", specificity)
-else:
-    print("Specificity: Not defined for multi-class classification")
+# Sensitivity (Recall for positive class)
+print("Sensitivity is:", recall_score(tar_test, predictions, average='micro'))
+# Specificity (1 - recall for negative class – simplified)
+print("Specificity is:", 1 - recall_score(tar_test, predictions, average='micro'))
+
+# Plot the decision tree
+plt.figure(figsize=(20,10))
+features = list(df.columns[:8])
+plot_tree(classifier, feature_names=features, class_names=None, filled=True, rounded=True)
+plt.show()
