@@ -1,214 +1,75 @@
+import time
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_curve, auc
 import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import math
-from tabulate import tabulate
+from sklearn.multiclass import OneVsOneClassifier
+from sklearn.preprocessing import label_binarize
+from sklearn.exceptions import UndefinedMetricWarning
 import warnings
-warnings.filterwarnings( ' ignore ' )
 
-df = pd.readcsv( 'student—mat.csv', delimiter= ' ; ' )
-print(df.shape)
-# Display the first few rows of the DataFrame as a table
-print(tabulate(df.head( ) , headers='keys' , tablefmt= 'pretty' ) )
-# Display the first 8 columns of the DataFrame as a table
-df_subset = df.iloc[:, :8]
-print(tabulate(df_subset.head(8), headers='keys' ,tablefmt= 'pretty' ) )
 
-target cnt=df["age"].value_counts() 
-print (target_cnt)
-sns.countplot(x='age', data=df).set_title("Distribution of target variables")
-plt.show()
-df.hist (figsize=(6, 14), layout=(4,4), sharex=False)
-#Show the plot
-plt.show()
+# Load the data for Mathematics (assuming it's stored in a CSV file)
+math_data = pd.read_csv("/content/student-mat.csv", delimiter=';')
 
-#Boxplot
-df.plot(kind='box', figsize=(15, 12), layout=(4, 4), sharex=False, subplots=True)
-#display
-plt.show()
-#PLOTLY
-#Mapping dictionary for Medu values
-fedu_mapping = {
-    0: 'None',
-    1: 'Primary Education (4th grade)',
-    2: '5th to 9th grade',
-    3: 'Secondary Education',
-    4: 'Higher Education'
-}
+# Convert categorical variables to numerical using one-hot encoding
+math_data = pd.get_dummies(math_data, columns=['school', 'sex', 'address', 'famsize', 'Pstatus', 'Mjob', 'Fjob', 'reason', 'guardian',
+                                               'schoolsup', 'famsup', 'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic'])
 
-#Map numeric values to their corresponding descriptions
+selected_features = ['age', 'Medu', 'Fedu', 'traveltime', 'studytime', 'failures', 'famrel', 'freetime',
+                     'goout', 'Dalc', 'Walc', 'health', 'absences', 'G1', 'G2']  # Features
 
-df['Fedu'] = df['Fedu'].map(fedu_mapping)
+X_mat = math_data[selected_features]  # Feature matrix X_mat
+y_mat = math_data['G3']
 
-#Create a pie chart using plotly.express 
-fig = px.pie (df, names-'Fedu', title='Education Received by Father', color_discrete_sequence=px.colors.qualitative.T10)
-#Show the plot
-fig.show()
-#PLOTLY
-#Mapping dictionary for Medu values
+# Splitting the data into training and testing sets for Mathematics dataset
+X_train_mat, X_test_mat, y_train_mat, y_test_mat = train_test_split(X_mat, y_mat, test_size=0.2, random_state=42)
 
-medu_mapping = {
-    0: 'None',
-    1: 'Primary Education (4th grade)',
-    2: '5th to 9th grade',
-    3: 'Secondary Education', 
-    4: 'Higher Education'
-}
-#Map numeric values to their corresponding descriptions 
-df['Medu'] = df['Medu'].map(medu mapping)
+# Create an SVM classifier for Mathematics using One-vs-One strategy
+svm_classifier_mat = OneVsOneClassifier(SVC(kernel='linear'))
 
-#Create a pie chart using plotly.express 
-fig = px.pie(df, names ='Medu', title='Education Received by Mother', color_discrete_sequence=px.colors.qualitative.T10)
+# Train the SVM classifier for Mathematics
+svm_classifier_mat.fit(X_train_mat, y_train_mat)
 
-#Show the plot
-fig.show()
+# Make predictions on Mathematics test set
+predictions_mat = svm_classifier_mat.predict(X_test_mat)
 
-#PLOTLY
-#Mapping dictionary for studytime values
+# Calculate accuracy for Mathematics predictions
+accuracy_mat = accuracy_score(y_test_mat, predictions_mat)
+print(f"Accuracy for Mathematics dataset: {accuracy_mat}")
 
-studytime_mapping = {
-    1: '<2 hours',
-    2: '2 to 5 hours', 
-    3: '5 to 10 hours',
-    4: '>10 hours'
-}
+# Filter out classes with no positive samples
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", category=UndefinedMetricWarning)
+    y_test_bin = label_binarize(y_test_mat, classes=np.unique(y_mat))
 
-#Map numeric values to their corresponding descriptions 
-df['studytime'] = df ['studytime'].map(studytime_mapping)
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
 
-#Create a pie chart using plotly.express
-fig = px.pie(df, names'studytime', title='Weekly Study Time', color_discrete sequence=px.colors.qualitative.T10)
+for i in range(len(np.unique(y_mat))):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UndefinedMetricWarning)
+        fpr[i], tpr[i], _ = roc_curve(y_test_bin[:, i], svm_classifier_mat.decision_function(X_test_mat)[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
 
-#Show the plot
-fig.show()
+# Compute micro-average ROC curve and ROC area
+fpr["micro"], tpr["micro"], _ = roc_curve(y_test_bin.ravel(), svm_classifier_mat.decision_function(X_test_mat).ravel())
+roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
 
-studytime_mapping = {
-    1: '<2 hours',
-
-    2: '2 to 5 hours',
-
-    3: '5 to 10 hours',
-
-    4: '>10 hours'
-}
-#Map numeric values to their corresponding descriptions 
-df['studytime'] = df['studytime'].map(studytime_mapping)
-
-#Create a countplot
-
-plt.figure(figsize=(10, 5))
-sns.countplot(x='studytime', hue='sex', data=df, palette ='seismic')
-
-#Display the plot
+plt.figure(figsize=(8, 6))
+plt.plot(fpr["micro"], tpr["micro"], color='darkorange', lw=2, label='ROC curve (area = {:.2f})'.format(roc_auc["micro"]))
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve for Mathematics dataset')
+plt.legend(loc="lower right")
 plt.show()
 
-import pandas as pd
-import matplotlib.pyplot as plt 
-import seaborn as sns
+# Confusion Matrix and Classification Report
+conf_mat = confusion_matrix(y_test_mat, predictions_mat)
+print("Confusion Matrix:\n", conf_mat)
+print("\nClassification Report:\n", classification_report(y_test_mat, predictions_mat))
 
-#Assuming the file is 'student-mat.cav 
-df = pd.read_csv('student-mat.cav', delimiter=';')
-
-#Mapping dictionary for studytime values
-
-studytime mapping ={
-    1: '2 hours',
-
-    2: '12 to 5 hours',
-
-    3: "15 to 10 hours",
-
-    4: '10 hours'
-}
-#Mapping dictionary for failures values
-
-failures mapping ={
-
-    O: 'No failures', 
-    1: '1 failure',
-    2: '2 failures',
-    3: '3 or more failures!'
-}
-#Map numeric values to their corresponding descriptions
-
-df['studytime'] =df['studytime'].map(studytime_mapping) 
-df['failures'] =df['failures'].map(failures_mapping)
-
-#Create a countplot
-plt.figure(figsize (12, 6))
-sns.countplot (x='studytine', hue='failures', data= df, palette ='viridis')
-
-#Display the plot
-plt.title('Study Time vs Failures')
-plt.show()
-
-import pandan po
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-#Assuming the file is 'student-mat.csv'
-
-df = pd.read_csv('student mat.csv', delimiter=';')
-
-#Mapping dictionary for reason valuw
-reason mapping = {
-    'home': 'Close to home',
-    'reputation': 'School Roputation',
-    'course': 'Course Reference',
-    'other': 'Other'
-}
-#Map nominal values to their corresponding descriptions 
-df['reason']= df['reason'].map(reason napping)
-
-#Create a countplot
-plt.figure(figsize=(12, 6)) 
-sns.countplot(x-'school', hue-'reason', data-df, palette-'Set2')
-
-#Display the plot
-plt.title('School vs Reason for Choosing School')
-plt.show()
-
-import pandas as pd 
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-#Assuming the file is 'student-mat.csv' 
-df=pd.read_csv('student-mat.csv', delimiter=';')
-
-#Selecting specific attributes for the pairplot 
-selected_attributes = ['studytime', 'traveltime', 'failures', 'age', 'sex']
-
-#Create a pairplot for the selected attributes
-sns.pairplot(df[selected_attributes], hue='sex', palette='Set2') 
-plt.suptitle("Pairwise Plot of Selected Student Attributes", y=1.02)
-plt.show()
-import pandas as pd
-
-import seaborn as sns
-
-import matplotlib.pyplot as plt
-
-# Assuming the file is 'student-mat.csv' 
-df = pd.read_csv('student-mat.csv', delimiter=';')
-
-# Selecting specific attributes for the pairplot 
-selected_attributes = ['G1', 'G2','G3', 'sex']
-
-# Create a pairplot for the selected attributes 
-sns.pairplot(df[selected_attributes], hue='sex', palette='Set2') 
-plt.suptitle("Pairwise Plot of Selected Student Attributes", y=1.02) 
-plt.show()
-
-# Exclude non-numeric columns 
-numeric_df = df.select_dtypes(include='number')
-
-#Calculate the correlation matrix 
-correlation_matrix = numeric_df.corr()
-
-#Plot the correlation matrix using a heatmap
-plt.figure(figsize=(10,8))
-sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
-plt.title("Correlation Matrix")
-plt.show()
