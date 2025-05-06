@@ -12,8 +12,7 @@ df = pd.read_csv("/content/student-mat.csv", delimiter=';')
 # Convert categorical variables to numerical
 df['sex'] = df['sex'].map({'M': 0, 'F': 1})
 df['address'] = df['address'].map({'U': 0, 'R': 1})
-df['guardian'] = df['guardian'].map({'mother': 0, 'father': 1, 'other':2}) #add 'other' to handle all categories
-# Add more mappings if necessary for other categorical columns...
+df['guardian'] = df['guardian'].map({'mother': 0, 'father': 1, 'other':2})
 
 # Define predictor and target columns
 # Instead of removing 'G3', define predictor columns as all columns except 'G3'
