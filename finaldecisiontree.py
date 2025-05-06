@@ -1,45 +1,66 @@
 import numpy as np
 import pandas as pd
-from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
-import sklearn.metrics
+from sklearn.metrics import accuracy_score, recall_score, confusion_matrix
 
-df = pd.read_csv(r'C:/Users/kgr/Downloads/student+performance/student/student-mat.csv')
-df['sex'] = df['sex'].map({'M': 0, 'F': 1})
-df['address'] = df['address'].map({'U': 0, 'R': 1})
-df['guardian'] = df['guardian'].map({'mother': 0, 'father': 1})
-#df['internet'] = df['internet'].map({'no': 0, 'yes': 1})
+# Load data with correct delimiter
+df = pd.read_csv("/content/student-mat.csv", sep=';')
 
-predictor_columns = ['school', 'sex', 'age', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu',
-                     'Mjob', 'Fjob', 'reason', 'guardian', 'traveltime', 'studytime',
-                     'failures', 'schoolsup', 'famsup', 'paid', 'activities', 'nursery',
-                     'higher', 'internet', 'romantic', 'famrel', 'freetime', 'goout',
-                     'Dalc', 'Walc', 'health', 'absences', 'G1', 'G2']
+# Lowercase column names
+df.columns = df.columns.str.strip().str.lower()
 
-predictors = df[predictor_columns].values
-targets = df["G3"].values
+# Manual binary mapping (safe with all known values)
+binary_map = {
+    'sex': {'M': 0, 'F': 1},
+    'address': {'U': 0, 'R': 1},
+    'pstatus': {'A': 0, 'T': 1},
+    'schoolsup': {'no': 0, 'yes': 1},
+    'famsup': {'no': 0, 'yes': 1},
+    'paid': {'no': 0, 'yes': 1},
+    'activities': {'no': 0, 'yes': 1},
+    'nursery': {'no': 0, 'yes': 1},
+    'higher': {'no': 0, 'yes': 1},
+    'internet': {'no': 0, 'yes': 1},
+    'romantic': {'no': 0, 'yes': 1},
+    'guardian': {'mother': 0, 'father': 1, 'other': 2}
+}
 
-pred_train, pred_test, tar_train, tar_test = train_test_split(predictors, targets, test_size=0.25)
+# Apply binary mapping
+for col, mapping in binary_map.items():
+    if col in df.columns:
+        df[col] = df[col].map(mapping)
 
-print(pred_train.shape)
-print(pred_test.shape)
-print(tar_train.shape)
-print(tar_test.shape)
+# Identify remaining non-numeric columns and encode them
+non_numeric_cols = df.select_dtypes(include='object').columns
+df = pd.get_dummies(df, columns=non_numeric_cols)
 
-neigh = KNeighborsClassifier(n_neighbors=1, weights='uniform', algorithm='auto')
-neigh.fit(pred_train, tar_train)
-y_pred = neigh.predict(pred_test)
+# Drop rows with NaN (e.g., if mapping failed)
+df.dropna(inplace=True)
 
-# Accuracy
-print("Accuracy is ", accuracy_score(tar_test, y_pred, normalize=True))
+# Select features and target
+X = df.drop(columns='g3')
+y = df['g3']
 
-# Classification error
-print("Classification error is", 1 - accuracy_score(tar_test, y_pred, normalize=True))
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
 
-# Sensitivity
-print("Sensitivity is", sklearn.metrics.recall_score(tar_test, y_pred, labels=None, average='micro', sample_weight=None))
+# Fit KNN
+knn = KNeighborsClassifier(n_neighbors=1)
+knn.fit(X_train, y_train)
 
-# Specificity
-print("Specificity is", 1 - sklearn.metrics.recall_score(tar_test, y_pred, labels=None, average='micro', sample_weight=None))
+# Predict
+y_pred = knn.predict(X_test)
+
+# Evaluation
+acc = accuracy_score(y_test, y_pred)
+print("Accuracy:", acc)
+print("Classification Error:", 1 - acc)
+print("Sensitivity (micro):", recall_score(y_test, y_pred, average='micro'))
+
+if len(np.unique(y)) == 2:
+    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+    specificity = tn / (tn + fp)
+    print("Specificity:", specificity)
+else:
+    print("Specificity: Not defined for multi-class classification")
